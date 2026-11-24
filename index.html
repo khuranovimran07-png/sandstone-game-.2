@@ -551,13 +551,50 @@ function updateHUD() {
   const alive = enemies.filter(e => e.alive).length;
   enemyText.textContent = `🎯 Врагов: ${alive}`;
 }
-
 function showMsg(text, permanent) {
   msgEl.innerHTML = text;
-  msgEl
+msgEl.classList.add('show');
+  if (!permanent) { msgTimer = 120; }
+}
+
+let running = true;
+
+function initGame() {
+  resize();
+  positionSticks();
+  spawnEnemies();
+  player.x = 3*TILE; player.y = 10*TILE;
+  player.hp = 100; player.ammo = 30; player.reserve = 90;
+  player.alive = true; player._won = false;
+  camera.x = player.x - W/2; camera.y = player.y - H/2;
+  requestAnimationFrame(loop);
+}
+
+function loop() {
+  if (!running) return;
+  ctx.clearRect(0, 0, W, H);
+  drawMap();
+  drawZones();
+  drawBullets();
+  drawEnemies();
+  drawPlayer();
+  drawCrosshair();
+  updatePlayer();
+  updateEnemies();
+  updateBullets();
+  updateCamera();
+  updateHUD();
+  if (msgTimer > 0) { msgTimer--; if (msgTimer === 0) msgEl.classList.remove('show'); }
+  if (running && player.alive && enemies.every(e => !e.alive) && !player._won) {
+    player._won = true;
+    showMsg('🏆 ПОБЕДА!<br><small>Все враги уничтожены</small>', true);
+  }
+  requestAnimationFrame(loop);
+}
+
 window.addEventListener('load', () => {
   setTimeout(initGame, 100);
-})
- ;</script>
+});
+</script>
 </body>
 </html>
