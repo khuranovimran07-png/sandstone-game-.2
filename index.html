@@ -63,21 +63,6 @@
     position:absolute; top:-20px; left:0; right:0; text-align:center;
     color:#fff8; font-size:10px;
   }
-
-  /* Стартовый экран */
-  #start {
-    position:absolute; inset:0; background:#1a1a1aF0; z-index:100;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    color:#fff; text-align:center; padding:24px;
-  }
-  #start h1 { font-size:26px; margin-bottom:8px; color:#ffd700; }
-  #start p { font-size:14px; color:#bbb; margin:4px 0; max-width:320px; }
-  #start button {
-    margin-top:24px; padding:16px 48px; font-size:20px; font-weight:bold;
-    background:#4a90d9; color:#fff; border:none; border-radius:12px;
-    box-shadow:0 4px 16px #4a90d980;
-  }
-  #start button:active { background:#3a70b9; }
 </style>
 </head>
 <body>
@@ -109,17 +94,6 @@
 <div class="btn" id="btnRun">БЕГ</div>
 <div class="btn" id="btnFire">🔥</div>
 
-<!-- Стартовый экран -->
-<div id="start">
-  <h1>🔫 SANDSTONE</h1>
-  <p>Карта: A & Mid</p>
-  <p style="margin-top:16px">🎮 Левый стик — движение</p>
-  <p>🎯 Правый стик — прицел и огонь</p>
-  <p>🔥 Кнопка справа — стрельба</p>
-  <p>⚡ БЕГ — ускорение, RELOAD — перезарядка</p>
-  <button id="startBtn">ИГРАТЬ</button>
-</div>
-
 <script>
 // ===================== ИНИЦИАЛИЗАЦИЯ CANVAS =====================
 const canvas = document.getElementById('game');
@@ -141,7 +115,7 @@ window.addEventListener('orientationchange', () => setTimeout(resize, 100));
 resize();
 
 // ===================== КАРТА (Sandstone: A + Mid) =====================
-const TILE = 40; // увеличено для удобства на телефоне
+const TILE = 40;
 const MAP_W = 30, MAP_H = 20;
 
 const map = [
@@ -170,10 +144,8 @@ const map = [
 const MAP_PX_W = MAP_W * TILE;
 const MAP_PX_H = MAP_H * TILE;
 
-// Камера
 const camera = { x: 0, y: 0 };
 
-// ===================== ИГРОК =====================
 const player = {
   x: 3*TILE, y: 10*TILE, r: 14,
   speed: 2.0, runSpeed: 3.2,
@@ -182,7 +154,6 @@ const player = {
   angle: 0, alive: true
 };
 
-// ===================== ВРАГИ =====================
 const enemies = [];
 function spawnEnemies() {
   enemies.length = 0;
@@ -201,7 +172,6 @@ function spawnEnemies() {
   });
 }
 
-// ===================== ПУЛИ =====================
 const bullets = [];
 function shoot(x, y, angle, fromPlayer) {
   bullets.push({
@@ -211,7 +181,6 @@ function shoot(x, y, angle, fromPlayer) {
   });
 }
 
-// ===================== СТОЛКНОВЕНИЯ =====================
 function isWall(px, py) {
   const tx = Math.floor(px / TILE);
   const ty = Math.floor(py / TILE);
@@ -223,7 +192,6 @@ function canMove(x, y, r) {
 }
 
 // ===================== ТАЧ-УПРАВЛЕНИЕ =====================
-// Состояние стиков
 const moveStick = { active:false, id:null, bx:0, by:0, dx:0, dy:0 };
 const aimStick  = { active:false, id:null, bx:0, by:0, dx:0, dy:0, fire:false };
 let runPressed = false;
@@ -237,10 +205,8 @@ const btnFire     = document.getElementById('btnFire');
 const btnRun      = document.getElementById('btnRun');
 const btnReload   = document.getElementById('btnReload');
 
-// Получаем координаты элемента
 function rectOf(el) { return el.getBoundingClientRect(); }
 
-// Инициализация позиций стиков при старте и ресайзе
 function positionSticks() {
   const rMove = rectOf(stickMoveEl);
   moveStick.bx = rMove.left + rMove.width/2;
@@ -251,14 +217,13 @@ function positionSticks() {
 }
 window.addEventListener('resize', () => setTimeout(positionSticks, 50));
 window.addEventListener('orientationchange', () => setTimeout(positionSticks, 200));
+setTimeout(positionSticks, 100);
 
-// ---------- Touch handlers ----------
 function handleTouchStart(e) {
   for (const t of e.changedTouches) {
     const rMove = rectOf(stickMoveEl);
     const rAim  = rectOf(stickAimEl);
 
-    // Левый стик — если касание в зоне левого стика (с запасом)
     if (!moveStick.active &&
         t.clientX >= rMove.left - 30 && t.clientX <= rMove.left + rMove.width + 30 &&
         t.clientY >= rMove.top  - 30 && t.clientY <= rMove.top  + rMove.height + 30) {
@@ -270,7 +235,6 @@ function handleTouchStart(e) {
       continue;
     }
 
-    // Правый стик — прицел
     if (!aimStick.active &&
         t.clientX >= rAim.left - 30 && t.clientX <= rAim.left + rAim.width + 30 &&
         t.clientY >= rAim.top  - 30 && t.clientY <= rAim.top  + rAim.height + 30) {
@@ -278,12 +242,11 @@ function handleTouchStart(e) {
       aimStick.id = t.identifier;
       aimStick.bx = rAim.left + rAim.width/2;
       aimStick.by = rAim.top  + rAim.height/2;
-      aimStick.fire = true; // правый стик автоматически стреляет при движении
+      aimStick.fire = true;
       updateAimStick(t.clientX, t.clientY);
       continue;
     }
 
-    // Кнопка FIRE
     if (isInside(t, btnFire)) { firePressed = true; btnFire.classList.add('active'); continue; }
     if (isInside(t, btnRun))  { runPressed = true;  btnRun.classList.add('active'); continue; }
     if (isInside(t, btnReload)) { startReload(); btnReload.classList.add('active'); continue; }
@@ -322,9 +285,7 @@ function handleTouchEnd(e) {
   e.preventDefault();
 }
 
-function isInside(touch, el) {
-  return isInsidePoint(touch.clientX, touch.clientY, el);
-}
+function isInside(touch, el) { return isInsidePoint(touch.clientX, touch.clientY, el); }
 function isInsidePoint(x, y, el) {
   const r = el.getBoundingClientRect();
   return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
@@ -350,7 +311,6 @@ function updateAimStick(tx, ty) {
   aimStick.dx = dx / maxR;
   aimStick.dy = dy / maxR;
   knobAimEl.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-  // Направление прицела от стика
   if (Math.hypot(dx,dy) > 6) {
     player.angle = Math.atan2(aimStick.dy, aimStick.dx);
   }
@@ -360,22 +320,16 @@ canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
 canvas.addEventListener('touchmove',  handleTouchMove,  { passive: false });
 canvas.addEventListener('touchend',   handleTouchEnd,   { passive: false });
 canvas.addEventListener('touchcancel',handleTouchEnd,   { passive: false });
-
-// Запрет скролла и зума
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
-// ===================== ПЕРЕЗАРЯДКА =====================
 function startReload() {
   if (player.reloading || player.ammo === player.maxAmmo || player.reserve <= 0) return;
   player.reloading = true;
   player.reloadTime = 90;
 }
 
-// ===================== ОБНОВЛЕНИЕ ИГРОКА =====================
 function updatePlayer() {
   if (!player.alive) return;
-
-  // Движение через стик
   const mag = Math.hypot(moveStick.dx, moveStick.dy);
   if (mag > 0.15) {
     const spd = runPressed ? player.runSpeed : player.speed;
@@ -384,8 +338,6 @@ function updatePlayer() {
     if (canMove(nx, player.y, player.r)) player.x = nx;
     if (canMove(player.x, ny, player.r)) player.y = ny;
   }
-
-  // Стрельба (правый стик или кнопка FIRE)
   const wantFire = aimStick.fire || firePressed;
   if (wantFire && player.ammo > 0 && !player.reloading) {
     if (!player._shootCd || player._shootCd <= 0) {
@@ -395,8 +347,6 @@ function updatePlayer() {
     }
   }
   if (player._shootCd > 0) player._shootCd--;
-
-  // Перезарядка
   if (player.reloading) {
     player.reloadTime--;
     if (player.reloadTime <= 0) {
@@ -409,35 +359,24 @@ function updatePlayer() {
   }
 }
 
-// ===================== ОБНОВЛЕНИЕ ВРАГОВ =====================
 function updateEnemies() {
   enemies.forEach(e => {
     if (!e.alive) return;
     const dxp = player.x - e.x, dyp = player.y - e.y;
     const distToPlayer = Math.hypot(dxp, dyp);
-
-    if (distToPlayer < 450 && player.alive) {
-      e.angle = Math.atan2(dyp, dxp);
-    }
-
+    if (distToPlayer < 450 && player.alive) { e.angle = Math.atan2(dyp, dxp); }
     e.wanderTimer--;
     if (e.wanderTimer <= 0) {
       e.wanderTimer = 60 + Math.random()*90;
       const a = Math.random() * Math.PI * 2;
       e.wx = Math.cos(a); e.wy = Math.sin(a);
     }
-
     let mx = e.wx, my = e.wy;
-    if (distToPlayer < 350 && player.alive) {
-      mx = dxp / distToPlayer;
-      my = dyp / distToPlayer;
-    }
-
+    if (distToPlayer < 350 && player.alive) { mx = dxp / distToPlayer; my = dyp / distToPlayer; }
     const nx = e.x + mx * e.speed;
     const ny = e.y + my * e.speed;
     if (canMove(nx, e.y, e.r)) e.x = nx;
     if (canMove(e.x, ny, e.r)) e.y = ny;
-
     if (distToPlayer < 380 && player.alive) {
       e.shootTimer--;
       if (e.shootTimer <= 0) {
@@ -449,15 +388,12 @@ function updateEnemies() {
   });
 }
 
-// ===================== ПУЛИ =====================
 function updateBullets() {
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
     b.x += b.vx; b.y += b.vy; b.life--;
-
     let hit = false;
     if (isWall(b.x, b.y) || b.life <= 0) hit = true;
-
     if (!b.fromPlayer && player.alive) {
       if (Math.hypot(b.x - player.x, b.y - player.y) < player.r) {
         player.hp -= 15;
@@ -474,25 +410,21 @@ function updateBullets() {
         }
       });
     }
-
     if (hit) bullets.splice(i, 1);
   }
 }
 
-// ===================== КАМЕРА =====================
 function updateCamera() {
   const targetX = player.x - W/2;
   const targetY = player.y - H/2;
   camera.x += (targetX - camera.x) * 0.15;
   camera.y += (targetY - camera.y) * 0.15;
-  // Ограничения
   camera.x = Math.max(0, Math.min(MAP_PX_W - W, camera.x));
   camera.y = Math.max(0, Math.min(MAP_PX_H - H, camera.y));
   if (MAP_PX_W < W) camera.x = (MAP_PX_W - W) / 2;
   if (MAP_PX_H < H) camera.y = (MAP_PX_H - H) / 2;
 }
 
-// ===================== РЕНДЕР =====================
 const colors = { 0:'#3a2a1a', 1:'#c9a86a', 2:'#8b6b3a' };
 
 function drawMap() {
@@ -530,7 +462,6 @@ function drawZones() {
   ctx.fillStyle = 'rgba(255,80,80,0.7)';
   ctx.font = 'bold 36px Arial';
   ctx.fillText('A', 12.5*TILE, 14.5*TILE);
-
   ctx.fillStyle = 'rgba(100,200,255,0.12)';
   ctx.fillRect(13*TILE, 8*TILE, 4*TILE, 4*TILE);
   ctx.fillStyle = 'rgba(100,200,255,0.6)';
@@ -543,14 +474,11 @@ function drawPlayer() {
   if (!player.alive) return;
   ctx.save();
   ctx.translate(player.x - camera.x, player.y - camera.y);
-  // тень
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath(); ctx.ellipse(2, 4, player.r, player.r*0.8, 0, 0, Math.PI*2); ctx.fill();
-  // тело
   ctx.fillStyle = '#4a90d9';
   ctx.beginPath(); ctx.arc(0,0,player.r,0,Math.PI*2); ctx.fill();
   ctx.strokeStyle = '#2a5a9a'; ctx.lineWidth = 2.5; ctx.stroke();
-  // оружие
   ctx.rotate(player.angle);
   ctx.fillStyle = '#222';
   ctx.fillRect(player.r-2, -4, 24, 8);
@@ -565,6 +493,65 @@ function drawEnemies() {
     const sx = e.x - camera.x, sy = e.y - camera.y;
     ctx.save();
     ctx.translate(sx, sy);
-    // тень
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.beginPath(); ctx.ellipse(2, 4, e.r, e
+    ctx.beginPath(); ctx.ellipse(2, 4, e.r, e.r*0.8, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#d94a4a';
+    ctx.beginPath(); ctx.arc(0,0,e.r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#8a2a2a'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.rotate(e.angle);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(e.r-2, -4, 20, 8);
+    ctx.restore();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(sx-18, sy-24, 36, 5);
+    ctx.fillStyle = '#3f3';
+    ctx.fillRect(sx-18, sy-24, 36*(e.hp/100), 5);
+  });
+}
+
+function drawBullets() {
+  bullets.forEach(b => {
+    const sx = b.x - camera.x, sy = b.y - camera.y;
+    ctx.fillStyle = b.fromPlayer ? '#ffd700' : '#ff6b6b';
+    ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = b.fromPlayer ? 'rgba(255,215,0,0.5)' : 'rgba(255,100,100,0.5)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx - b.vx*2, sy - b.vy*2);
+    ctx.stroke();
+  });
+}
+
+function drawCrosshair() {
+  const px = player.x - camera.x + Math.cos(player.angle) * 80;
+  const py = player.y - camera.y + Math.sin(player.angle) * 80;
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(px-10, py); ctx.lineTo(px-4, py);
+  ctx.moveTo(px+4, py);  ctx.lineTo(px+10, py);
+  ctx.moveTo(px, py-10); ctx.lineTo(px, py-4);
+  ctx.moveTo(px, py+4);  ctx.lineTo(px, py+10);
+  ctx.stroke();
+}
+
+const hpText = document.getElementById('hpText');
+const hpBar = document.getElementById('hpBar');
+const ammoText = document.getElementById('ammoText');
+const enemyText = document.getElementById('enemyText');
+const msgEl = document.getElementById('msg');
+let msgTimer = 0;
+
+function updateHUD() {
+  hpText.textContent = player.hp;
+  hpBar.style.width = player.hp + '%';
+  hpBar.style.background = player.hp > 60 ? '#3f3' : player.hp > 30 ? '#fa3' : '#f44';
+  ammoText.textContent = `${player.ammo} / ${player.reserve}` + (player.reloading ? ' ⟳' : '');
+  const alive = enemies.filter(e => e.alive).length;
+  enemyText.textContent = `🎯 Врагов: ${alive}`;
+}
+
+function showMsg(text, permanent) {
+  msgEl.innerHTML = text;
+  msgEl
