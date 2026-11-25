@@ -1,221 +1,95 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>SandStone Mobile</title>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:none; user-select:none; }
-  html, body { width:100%; height:100%; overflow:hidden; background:#000; font-family:Arial; }
-  #game { display:block; position:absolute; top:0; left:0; }
-  #hud { position:absolute; top:10px; left:10px; color:#fff; font-size:13px; z-index:10; pointer-events:none; }
-  .bar { width:120px; height:8px; background:#000a; border-radius:4px; margin-top:2px; }
-  .bar > div { height:100%; background:#3f3; }
-  #msg { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#fff; background:#000a; padding:20px; border-radius:10px; display:none; z-index:20; text-align:center; }
-  .btn { position:absolute; border-radius:50%; background:#ffffff18; border:2px solid #ffffff40; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; z-index:15; font-weight:bold; }
-  #btnReload { width:62px; height:62px; right:16px; bottom:180px; }
-  #btnRun { width:56px; height:56px; right:88px; bottom:180px; }
-  #btnFire { width:90px; height:90px; right:24px; bottom:70px; background:#ff4a4a40; border-color:#ff6b6b80; }
-  .stick { position:absolute; width:130px; height:130px; border-radius:50%; background:#ffffff12; border:2px solid #ffffff30; z-index:12; bottom:30px; }
-  #stickMove { left:20px; } #stickAim { right:20px; }
-  .knob { position:absolute; width:56px; height:56px; border-radius:50%; background:#ffffff60; top:50%; left:50%; transform:translate(-50%,-50%); }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Shooter Engine</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+        #crosshair {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 10px; height: 10px;
+            background: red;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body>
-<canvas id="game"></canvas>
-<div id="hud">
-  <div>❤️ HP <span id="hpText">100</span></div>
-  <div class="bar"><div id="hpBar" style="width:100%"></div></div>
-  <div style="margin-top:5px">🔫 <span id="ammoText" style="color:gold">30 / 90</span></div>
-  <div id="enemyText">🎯 Врагов: 3</div>
-</div>
-<div id="msg"></div>
-<div class="stick" id="stickMove"><div class="knob" id="knobMove"></div></div>
-<div class="stick" id="stickAim"><div class="knob" id="knobAim"></div></div>
-<div class="btn" id="btnReload">RELOAD</div>
-<div class="btn" id="btnRun">БЕГ</div>
-<div class="btn" id="btnFire">🔥</div>
+    <div id="crosshair"></div>
+    
+    <!-- Подключаем Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<script>
-const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
-let W, H, DPR = Math.min(window.devicePixelRatio || 1, 2);
-function resize() { W = window.innerWidth; H = window.innerHeight; canvas.width = W * DPR; canvas.height = H * DPR; canvas.style.width = W + 'px'; canvas.style.height = H + 'px'; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); }
-window.onresize = resize; resize();
+    <script>
+        // 1. Настройка сцены, камеры и рендерера
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Небо (голубой цвет)
+        scene.fog = new THREE.Fog(0x87CEEB, 10, 50); // Туман для атмосферы
 
-const TILE = 40, MW = 30, MH = 20;
-const map = [
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  [0,0,0,0,0,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0],
-  [0,,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0],
-  [0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0],
-  [0,0,0,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0],
-  [0,0,0,1,0,0,0,0,1,1,2,2,1,1,2,2,1,1,1,1,0,0,1,1,0,0,1,1,1,0],
-  [0,1,1,1,1,1,1,1,1,1,2,2,1,1,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-  [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-  [0,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0],
-  [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0],
-  [0,1,1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0],
-  [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-  [0,1,1,1,1,1,1,1,1,1,2,2,2,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,0],
-  [0,1,1,1,1,1,1,1,1,1,2,2,2,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,0],
-  [0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0],
-  [0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0],
-  [0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0],
-  [0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0],
-  [0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0],
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-];
-const camera = {x:0, y:0};
-let p = {x: 15*TILE, y: 10*TILE, ..., r:14, hp:100, ammo:30, maxAmmo:30, res:90, reload:false, rt:0, ang:0, alive:true};
-let enemies = [], bullets = [];
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.y = 1.6; // Высота глаз игрока
 
-function spawn() {
-  enemies = [{x:26*TILE, y:2*TILE, r:14, hp:100, t:30, a:Math.PI}, {x:27*TILE, y:4*TILE, r:14, hp:100, t:60, a:Math.PI}, {x:25*TILE, y:15*TILE, r:14, hp:100, t:90, a:Math.PI}];
-}
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
- function isW(x, y) { 
-  let tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
-  return tx < 0 || ty < 0 || tx >= MW || ty >= MH || (map[ty] && map[ty][tx] === 1); 
- }
-function canM(x, y, r) {
-  return !isW(x-r, y-r) && !isW(x+r, y-r) && !isW(x-r, y+r) && !isW(x+r, y+r);
-}
+        // 2. Освещение
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
 
-const mS = {act:false, id:null, bx:0, by:0, dx:0, dy:0};
-const aS = {act:false, id:null, bx:0, by:0, dx:0, dy:0, fire:false};
-let isRun = false, isFire = false;
+        // 3. Создаем пол (заглушка вместо карты)
+        const floorGeometry = new THREE.PlaneGeometry(100, 100);
+        const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x8B5A2B }); // Коричневый цвет
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
 
-const elMS = document.getElementById('stickMove'), elAS = document.getElementById('stickAim');
-const elKM = document.getElementById('knobMove'), elKA = document.getElementById('knobAim');
-const elFire = document.getElementById('btnFire'), elRun = document.getElementById('btnRun');
+        // 4. Управление (WASD)
+        const keys = { w: false, a: false, s: false, d: false };
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyW') keys.w = true;
+            if (e.code === 'KeyA') keys.a = true;
+            if (e.code === 'KeyS') keys.s = true;
+            if (e.code === 'KeyD') keys.d = true;
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyW') keys.w = false;
+            if (e.code === 'KeyA') keys.a = false;
+            if (e.code === 'KeyS') keys.s = false;
+            if (e.code === 'KeyD') keys.d = false;
+        });
 
-function getR(el) { return el.getBoundingClientRect(); }
-function initSticks() {
-  let r = getR(elMS); mS.bx = r.left + r.width/2; mS.by = r.top + r.height/2;
-  r = getR(elAS); aS.bx = r.left + r.width/2; aS.by = r.top + r.height/2;
-}
+        // 5. Логика движения
+        const speed = 0.1;
+        function updateMovement() {
+            if (keys.w) camera.position.z -= speed;
+            if (keys.s) camera.position.z += speed;
+            if (keys.a) camera.position.x -= speed;
+            if (keys.d) camera.position.x += speed;
+        }
 
-function touchStart(e) {
-  for (let t of e.changedTouches) {
-    let rM = getR(elMS), rA = getR(elAS);
-    if (!mS.act && t.clientX > rM.left-30 && t.clientX < rM.right+30 && t.clientY > rM.top-30 && t.clientY < rM.bottom+30) {
-      mS.act = true; mS.id = t.identifier; mS.bx = rM.left+rM.width/2; mS.by = rM.top+rM.height/2; updM(t.clientX, t.clientY); continue;
-    }
-    if (!aS.act && t.clientX > rA.left-30 && t.clientX < rA.right+30 && t.clientY > rA.top-30 && t.clientY < rA.bottom+30) {
-      aS.act = true; aS.id = t.identifier; aS.bx = rA.left+rA.width/2; aS.by = rA.top+rA.height/2; aS.fire = true; updA(t.clientX, t.clientY); continue;
-    }
-    if (isIn(t, elFire)) { isFire = true; continue; }
-    if (isIn(t, elRun)) { isRun = true; continue; }
-    if (isIn(t, document.getElementById('btnReload'))) { startRel(); continue; }
-  }
-}
-function touchMove(e) {
-  for (let t of e.changedTouches) {
-    if (mS.act && t.identifier === mS.id) updM(t.clientX, t.clientY);
-    if (aS.act && t.identifier === aS.id) updA(t.clientX, t.clientY);
-  }
-  e.preventDefault();
-}
-function touchEnd(e) {
-  for (let t of e.changedTouches) {
-    if (t.identifier === mS.id) { mS.act = false; mS.dx = 0; mS.dy = 0; elKM.style.transform = 'translate(-50%,-50%)'; }
-    if (t.identifier === aS.id) { aS.act = false; aS.dx = 0; aS.dy = 0; aS.fire = false; elKA.style.transform = 'translate(-50%,-50%)'; }
-    if (isIn(t, elFire)) isFire = false;
-    if (isIn(t, elRun)) isRun = false;
-  }
-}
-function isIn(t, el) { let r = getR(el); return t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom; }
-function updM(x,y) { let dx = x-mS.bx, dy = y-mS.by, len = Math.hypot(dx,dy), max = 55; if (len>max) { dx=dx/len*max; dy=dy/len*max; } mS.dx = dx/max; mS.dy = dy/max; elKM.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; }
-function updA(x,y) { let dx = x-aS.bx, dy = y-aS.by, len = Math.hypot(dx,dy), max = 55; if (len>max) { dx=dx/len*max; dy=dy/len*max; } aS.dx = dx/max; aS.dy = dy/max; elKA.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; if (len>6) p.ang = Math.atan2(aS.dy, aS.dx); }
+        // 6. Игровой цикл
+        function animate() {
+            requestAnimationFrame(animate);
+            updateMovement();
+            renderer.render(scene, camera);
+        }
 
-document.addEventListener('touchstart', touchStart, {passive:false});
-document.addEventListener('touchmove', touchMove, {passive:false});
-document.addEventListener('touchend', touchEnd, {passive:false});
-document.addEventListener('touchcancel', touchEnd, {passive:false});
+        // Обработка изменения размера экрана
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
 
-function startRel() { if (p.reload || p.ammo === p.maxAmmo || p.res <= 0) return; p.reload = true; p.rt = 90; }
-function shoot(x,y,a,pl) { bullets.push({x, y, vx:Math.cos(a)*14, vy:Math.sin(a)*14, l:50, pl}); }
-
-function update() {
-  if (p.alive) {
-   if (Math.hypot(mS.dx, mS.dy) > 0.15) {
-    let spd = isRun ? 3.2 : 2.0;
-    // Находим, насколько далеко мы хотим сдвинуться
-    let nx = p.x + mS.dx * spd;
-    let ny = p.y + mS.dy * spd;
-
-    // Проверяем движение по X
-    if (canM(nx, p.y, p.r)) {
-        p.x = nx;
-    }
-    // Проверяем движение по Y
-    if (canM(p.x, ny, p.r)) {
-        p.y = ny;
-    }
-   }
-    }
-    if ((aS.fire || isFire) && p.ammo > 0 && !p.reload) {
-      if (!p._cd || p._cd <= 0) { shoot(p.x, p.y, p.ang, true); p.ammo--; p._cd = 9; }
-    }
-    if (p._cd > 0) p._cd--;
-    if (p.reload) {
-      p.rt--;
-      if (p.rt <= 0) { let need = p.maxAmmo - p.ammo, take = Math.min(need, p.res); p.ammo += take; p.res -= take; p.reload = false; }
-    }
-  }
-
-  enemies.forEach(e => {
-    if (e.hp <= 0) return;
-    let dx = p.x-e.x, dy = p.y-e.y, dist = Math.hypot(dx,dy);
-    if (dist < 400 && p.alive) e.a = Math.atan2(dy,dx);
-    let mx = dist<300 && p.alive ? dx/dist : (e.wx || 0), my = dist<300 && p.alive ? dy/dist : (e.wy || 0);
-    if (!e.wt || e.wt-- <= 0) { e.wt = 100; let ra = Math.random()*Math.PI*2; e.wx = Math.cos(ra); e.wy = Math.sin(ra); }
-    let nx = e.x + mx*1.2, ny = e.y + my*1.2;
-    if (canM(nx, e.y, e.r)) e.x = nx; if (canM(e.x, ny, e.r)) e.y = ny;
-    if (dist < 350 && p.alive) {
-      e.t--;
-      if (e.t <= 0) { shoot(e.x, e.y, e.a + (Math.random()-0.5)*0.1, false); e.t = 60+Math.random()*40; }
-    }
-  });
-
-  for (let i = bullets.length-1; i >= 0; i--) {
-    let b = bullets[i]; b.x += b.vx; b.y += b.vy; b.l--; let hit = false;
-    if (b.l <= 0 || isW(b.x, b.y)) hit = true;
-    if (!b.pl && p.alive && Math.hypot(b.x-p.x, b.y-p.y) < p.r) { p.hp -= 15; hit = true; if (p.hp <= 0) { p.hp = 0; p.alive = false; document.getElementById('msg').innerHTML = '💀 ВЫ ПОГИБЛИ'; document.getElementById('msg').style.display = 'block'; } }
-    if (b.pl) enemies.forEach(e => { if (e.hp > 0 && Math.hypot(b.x-e.x, b.y-e.y) < e.r) { e.hp -= 34; hit = true; } });
-    if (hit) bullets.splice(i,1);
-  }
-
-  let tx = p.x - W/2, ty = p.y - H/2;
-  camera.x += (tx - camera.x)*0.15; camera.y += (ty - camera.y)*0.15;
-  camera.x = Math.max(0, Math.min(MW*TILE - W, camera.x)); camera.y = Math.max(0, Math.min(MH*TILE - H, camera.y));
-
-  document.getElementById('hpText').innerText = p.hp; document.getElementById('hpBar').style.width = p.hp+'%';
-  document.getElementById('ammoText').innerText = p.ammo+' / '+p.res;
-  document.getElementById('enemyText').innerText = '🎯 Врагов: ' + enemies.filter(e => e.hp > 0).length;
-}
-
-function draw() {
-  ctx.fillStyle = '#c9a86a'; ctx.fillRect(0,0,W,H);
-  let sx = Math.floor(camera.x/TILE), sy = Math.floor(camera.y/TILE), ex = Math.ceil((camera.x+W)/TILE), ey = Math.ceil((camera.y+H)/TILE);
-  for (let y=Math.max(0,sy); y<Math.min(MH,ey); y++) for (let x=Math.max(0,sx); x<Math.min(MW,ex); x++) {
-    let t = map[y][x]; ctx.fillStyle = t === 0 ? '#3a2a1a' : (t === 2 ? '#8b6b3a' : '#c9a86a');
-    ctx.fillRect(x*TILE-camera.x, y*TILE-camera.y, TILE, TILE);
-    if (t === 2) { ctx.strokeStyle = '#00000060'; ctx.strokeRect(x*TILE-camera.x+2, y*TILE-camera.y+2, TILE-4, TILE-4); }
-  }
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 32px Arial'; ctx.fillText('MID', 14*TILE-camera.x, 10*TILE-camera.y); ctx.fillStyle = '#f44'; ctx.fillText('A', 12*TILE-camera.x, 14*TILE-camera.y);
-
-  bullets.forEach(b => { ctx.fillStyle = b.pl ? 'gold' : 'red'; ctx.beginPath(); ctx.arc(b.x-camera.x, b.y-camera.y, 4, 0, Math.PI*2); ctx.fill(); });
-  enemies.forEach(e => { if (e.hp <= 0) return; ctx.fillStyle = '#d94a4a'; ctx.beginPath(); ctx.arc(e.x-camera.x, e.y-camera.y, e.r, 0, Math.PI*2); ctx.fill(); });
-  if (p.alive) {
-    ctx.fillStyle = '#4a90d9'; ctx.beginPath(); ctx.arc(p.x-camera.x, p.y-camera.y, p.r, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.moveTo(p.x-camera.x, p.y-camera.y); ctx.lineTo(p.x-camera.x + Math.cos(p.ang)*80, p.y-camera.y + Math.sin(p.ang)*80); ctx.stroke();
-  }
-}
-
-function loop() { update(); draw(); requestAnimationFrame(loop); }
-
-window.onload = () => { resize(); initSticks(); spawn(); loop(); };
-</script>
+        animate();
+    </script>
 </body>
 </html>
