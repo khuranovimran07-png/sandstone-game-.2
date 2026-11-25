@@ -1,95 +1,185 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Shooter Engine</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #000; }
-        canvas { display: block; }
-        #crosshair {
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 10px; height: 10px;
-            background: red;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Шутер - Тир</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #111; font-family: Arial, sans-serif; touch-action: none; }
+  #game { position: relative; width: 100vw; height: 100vh; overflow: hidden; background: radial-gradient(circle at 50% 40%, #1a1a2e, #000); }
+  #hud { position: absolute; top: 10px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; color: #fff; font-size: 20px; font-weight: bold; pointer-events: none; z-index: 10; }
+  #time { color: #fadc3c; }
+  .target { position: absolute; border-radius: 50%; background: radial-gradient(circle, #e63946 0%, #a4161a 70%); border: 3px solid #fff; box-shadow: 0 0 15px rgba(230,57,70,0.8); will-change: transform; }
+  .target::after { content: ''; position: absolute; top: 50%; left: 50%; width: 40%; height: 40%; transform: translate(-50%, -50%); border-radius: 50%; border: 2px solid #fff; }
+  #crosshair { position: absolute; width: 40px; height: 40px; pointer-events: none; z-index: 20; transform: translate(-50%, -50%); display: none; }
+  #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #0f0; }
+  #crosshair::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
+  #crosshair::after { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+  #overlay { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); z-index: 100; color: #fff; text-align: center; padding: 20px; }
+  #overlay h1 { color: #e63946; font-size: 32px; margin-bottom: 15px; }
+  #overlay p { font-size: 20px; margin: 8px 0; }
+  #restartBtn { margin-top: 25px; padding: 15px 40px; font-size: 20px; font-weight: bold; border: none; border-radius: 12px; background: #2ecc71; color: #fff; }
+  #startScreen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 100; color: #fff; text-align: center; padding: 20px; }
+  #startScreen h1 { font-size: 34px; margin-bottom: 20px; color: #fadc3c; }
+  #startScreen p { font-size: 18px; margin: 8px 0; color: #ccc; }
+  #startBtn { margin-top: 30px; padding: 18px 50px; font-size: 22px; font-weight: bold; border: none; border-radius: 14px; background: #e63946; color: #fff; }
+</style>
 </head>
 <body>
-    <div id="crosshair"></div>
-    
-    <!-- Подключаем Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<div id="game">
+  <div id="hud">
+    <div>Счёт: <span id="score">0</span></div>
+    <div>Время: <span id="time">30</span></div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="startScreen">
+    <h1>🎯 ШУТЕР - ТИР</h1>
+    <p>Тапай по мишеням!</p>
+    <p>У тебя 30 секунд</p>
+    <button id="startBtn">ИГРАТЬ</button>
+  </div>
+  <div id="overlay">
+    <h1>ВРЕМЯ ВЫШЛО!</h1>
+    <p>Твой результат:</p>
+    <p style="font-size:34px;color:#fadc3c"><span id="finalScore">0</span> очков</p>
+    <button id="restartBtn">ИГРАТЬ СНОВА</button>
+  </div>
+</div>
 
-    <script>
-        // 1. Настройка сцены, камеры и рендерера
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB); // Небо (голубой цвет)
-        scene.fog = new THREE.Fog(0x87CEEB, 10, 50); // Туман для атмосферы
+<script>
+const game = document.getElementById('game');
+const scoreEl = document.getElementById('score');
+const timeEl = document.getElementById('time');
+const crosshair = document.getElementById('crosshair');
+const overlay = document.getElementById('overlay');
+const startScreen = document.getElementById('startScreen');
+const finalScoreEl = document.getElementById('finalScore');
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.y = 1.6; // Высота глаз игрока
+let targets = [];
+let score = 0;
+let timeLeft = 30;
+let playing = false;
+let timerId = null;
+let lastTime = 0;
+let spawnInterval = null;
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+function createTarget() {
+  const size = 40 + Math.random() * 40; // 40-80px
+  const el = document.createElement('div');
+  el.className = 'target';
+  el.style.width = size + 'px';
+  el.style.height = size + 'px';
 
-        // 2. Освещение
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(10, 20, 10);
-        scene.add(dirLight);
+  const w = game.clientWidth;
+  const h = game.clientHeight;
+  const x = Math.random() * (w - size);
+  const y = Math.random() * (h - size - 80) + 80;
 
-        // 3. Создаем пол (заглушка вместо карты)
-        const floorGeometry = new THREE.PlaneGeometry(100, 100);
-        const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x8B5A2B }); // Коричневый цвет
-        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.rotation.x = -Math.PI / 2;
-        scene.add(floor);
+  const target = {
+    el,
+    x, y,
+    vx: (Math.random() - 0.5) * 6,
+    vy: (Math.random() - 0.5) * 6,
+    size
+  };
+  el.style.transform = `translate(${x}px, ${y}px)`;
 
-        // 4. Управление (WASD)
-        const keys = { w: false, a: false, s: false, d: false };
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyW') keys.w = true;
-            if (e.code === 'KeyA') keys.a = true;
-            if (e.code === 'KeyS') keys.s = true;
-            if (e.code === 'KeyD') keys.d = true;
-        });
-        document.addEventListener('keyup', (e) => {
-            if (e.code === 'KeyW') keys.w = false;
-            if (e.code === 'KeyA') keys.a = false;
-            if (e.code === 'KeyS') keys.s = false;
-            if (e.code === 'KeyD') keys.d = false;
-        });
+  el.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    hitTarget(target);
+  }, { passive: false });
+  el.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    hitTarget(target);
+  });
 
-        // 5. Логика движения
-        const speed = 0.1;
-        function updateMovement() {
-            if (keys.w) camera.position.z -= speed;
-            if (keys.s) camera.position.z += speed;
-            if (keys.a) camera.position.x -= speed;
-            if (keys.d) camera.position.x += speed;
-        }
+  game.appendChild(el);
+  targets.push(target);
+}
 
-        // 6. Игровой цикл
-        function animate() {
-            requestAnimationFrame(animate);
-            updateMovement();
-            renderer.render(scene, camera);
-        }
+function hitTarget(t) {
+  if (!playing) return;
+  score++;
+  scoreEl.textContent = score;
+  t.el.remove();
+  targets = targets.filter(x => x !== t);
+  createTarget();
+  if (navigator.vibrate) navigator.vibrate(30);
+}
 
-        // Обработка изменения размера экрана
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+function updateTargets(dt) {
+  const w = game.clientWidth;
+  const h = game.clientHeight;
+  for (const t of targets) {
+    t.x += t.vx * dt * 60;
+    t.y += t.vy * dt * 60;
+    if (t.x <= 0) { t.x = 0; t.vx *= -1; }
+    if (t.x + t.size >= w) { t.x = w - t.size; t.vx *= -1; }
+    if (t.y <= 80) { t.y = 80; t.vy *= -1; }
+    if (t.y + t.size >= h) { t.y = h - t.size; t.vy *= -1; }
+    t.el.style.transform = `translate(${t.x}px, ${t.y}px)`;
+  }
+}
 
-        animate();
-    </script>
+function loop(now) {
+  if (!playing) return;
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+  updateTargets(dt);
+  requestAnimationFrame(loop);
+}
+
+function startGame() {
+  // очистка
+  targets.forEach(t => t.el.remove());
+  targets = [];
+  score = 0;
+  timeLeft = 30;
+  scoreEl.textContent = 0;
+  timeEl.textContent = 30;
+  overlay.style.display = 'none';
+  startScreen.style.display = 'none';
+  playing = true;
+
+  for (let i = 0; i < 6; i++) createTarget();
+
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
+
+  timerId = setInterval(() => {
+    timeLeft--;
+    timeEl.textContent = timeLeft;
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function endGame() {
+  playing = false;
+  clearInterval(timerId);
+  finalScoreEl.textContent = score;
+  overlay.style.display = 'flex';
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+}
+
+// Прицел под палец/мышь (опционально)
+game.addEventListener('touchmove', (e) => {
+  const touch = e.touches[0];
+  crosshair.style.display = 'block';
+  crosshair.style.left = touch.clientX + 'px';
+  crosshair.style.top = touch.clientY + 'px';
+}, { passive: true });
+game.addEventListener('mousemove', (e) => {
+  crosshair.style.display = 'block';
+  crosshair.style.left = e.clientX + 'px';
+  crosshair.style.top = e.clientY + 'px';
+});
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('restartBtn').addEventListener('click', startGame);
+
+// запрет двойного тапа-зума
+document.addEventListener('gesturestart', e => e.preventDefault());
+</script>
 </body>
 </html>
