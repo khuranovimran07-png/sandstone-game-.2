@@ -73,7 +73,10 @@ function spawn() {
   enemies = [{x:26*TILE, y:2*TILE, r:14, hp:100, t:30, a:Math.PI}, {x:27*TILE, y:4*TILE, r:14, hp:100, t:60, a:Math.PI}, {x:25*TILE, y:15*TILE, r:14, hp:100, t:90, a:Math.PI}];
 }
 
-function isW(x,y) { let tx = Math.floor(x/TILE), ty = Math.floor(y/TILE); return tx<0||ty<0||tx>=MW||ty>=MH||map[ty][tx]===0||map[ty][tx]===2; }
+function isW(x,y) { 
+  let tx = Math.floor(x/TILE), ty = Math.floor(y/TILE); 
+  return tx<0 || ty<0 || tx>=MW || ty>=MH || (map[ty] && map[ty][tx] === 1); 
+}
 function canM(x, y, r) {
   return !isW(x-r, y-r) && !isW(x+r, y-r) && !isW(x-r, y+r) && !isW(x+r, y+r);
 }
