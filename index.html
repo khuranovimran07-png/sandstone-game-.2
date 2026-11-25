@@ -74,7 +74,9 @@ function spawn() {
 }
 
 function isW(x,y) { let tx = Math.floor(x/TILE), ty = Math.floor(y/TILE); return tx<0||ty<0||tx>=MW||ty>=MH||map[ty][tx]===0||map[ty][tx]===2; }
-function canM(x,y,r) { return !isW(x-r,y) && !isW(x+r,y) && !isW(x,y-r) && !isW(x,y+r); }
+function canM(x, y, r) {
+  return !isW(x-r, y-r) && !isW(x+r, y-r) && !isW(x-r, y+r) && !isW(x+r, y+r);
+}
 
 const mS = {act:false, id:null, bx:0, by:0, dx:0, dy:0};
 const aS = {act:false, id:null, bx:0, by:0, dx:0, dy:0, fire:false};
