@@ -66,7 +66,7 @@ const map = [
   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 ];
 const camera = {x:0, y:0};
-const p = {x:3*TILE, y:10*TILE, r:14, hp:100, ammo:30, maxAmmo:30, res:90, reload:false, rt:0, ang:0, alive:true};
+let p = {x: 15*TILE, y: 10*TILE, ..., r:14, hp:100, ammo:30, maxAmmo:30, res:90, reload:false, rt:0, ang:0, alive:true};
 let enemies = [], bullets = [];
 
 function spawn() {
@@ -133,10 +133,21 @@ function shoot(x,y,a,pl) { bullets.push({x, y, vx:Math.cos(a)*14, vy:Math.sin(a)
 
 function update() {
   if (p.alive) {
-    if (Math.hypot(mS.dx, mS.dy) > 0.15) {
-      let spd = isRun ? 3.2 : 2.0, nx = p.x + mS.dx*spd, ny = p.y + mS.dy*spd;
-      if (canM(nx, p.y, p.r)) p.x = nx;
-      if (canM(p.x, ny, p.r)) p.y = ny;
+   if (Math.hypot(mS.dx, mS.dy) > 0.15) {
+    let spd = isRun ? 3.2 : 2.0;
+    // Находим, насколько далеко мы хотим сдвинуться
+    let nx = p.x + mS.dx * spd;
+    let ny = p.y + mS.dy * spd;
+
+    // Проверяем движение по X
+    if (canM(nx, p.y, p.r)) {
+        p.x = nx;
+    }
+    // Проверяем движение по Y
+    if (canM(p.x, ny, p.r)) {
+        p.y = ny;
+    }
+   }
     }
     if ((aS.fire || isFire) && p.ammo > 0 && !p.reload) {
       if (!p._cd || p._cd <= 0) { shoot(p.x, p.y, p.ang, true); p.ammo--; p._cd = 9; }
